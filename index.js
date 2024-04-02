@@ -214,7 +214,7 @@ function generateVolumetricData(
 
 	const setVoxelAndNeighbors = (x, y, z, count, highestIntensity, lowestIntensity) => {
 		const result = scaledThicknessArr[count]; //Stores the width of each point
-
+		// console.log("max", scaledThicknessArr.indexOf(21));
 		if (memoizedResult.find((el) => el[result]) === undefined) {
 			// Here I have calculated the intensity based on the number of points
 			// Since the width is for looped in all 3 dimentions, the width is increased which still follows the gaussian pattern
@@ -226,9 +226,6 @@ function generateVolumetricData(
 		// console.log("memoi", memoizedResult);
 		const getCorrectWidthArray = memoizedResult.find((el) => el[result])[result];
 
-		// if (result === 21) {
-		// 	console.log("ge", result, getCorrectWidthArray);
-		// }
 		for (let i = -result; i <= result; i++) {
 			for (let j = -result; j <= result; j++) {
 				for (let k = -result; k <= result; k++) {
@@ -268,21 +265,6 @@ function generateVolumetricData(
 		}
 	};
 
-	const getActualNumField = (numberOfFieldPoints, curr) => {
-		let arrayEnd = curr + numberOfFieldPoints;
-		let countForActualFieldLines = 0;
-		for (let i = curr; i < arrayEnd; i++) {
-			const x = Math.round(threeDimArr[0][i]);
-			const y = Math.round(threeDimArr[2][i]);
-			const z = Math.round(threeDimArr[1][i]);
-			if (x >= 0 && x < width && y >= 0 && y < height && z >= 0 && z < depth) {
-				countForActualFieldLines = countForActualFieldLines + 1;
-			}
-		}
-		return countForActualFieldLines;
-	};
-	let actualCount;
-
 	for (let i = 0; i < threeDimArr[0].length; i++) {
 		const x = Math.round(threeDimArr[0][i]);
 		const y = Math.round(threeDimArr[2][i]);
@@ -295,9 +277,7 @@ function generateVolumetricData(
 
 		if (count === initial_max) {
 			count = 0;
-			actualCount = 0;
 
-			// console.log("diff", initial_max, highest, middle, lowest);
 			if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
 				obj.highest = obj.highest + 1;
 			} else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
@@ -306,36 +286,21 @@ function generateVolumetricData(
 				obj.lowest = obj.lowest + 1;
 			}
 			j = j + 1;
-			// if (initial_max === 3506) {
-			// 	console.log("befi", num_field[j]);
-			// }
-			initial_max = num_field[j];
-			const countForActualFieldLines = getActualNumField(num_field[j], i);
-			findingGaussianArray(countForActualFieldLines);
 
-			// findingGaussianArray(num_field[j]);
-			// if (initial_max == 9936) {
-			// 	console.log("vava", initial_max, valueToSet);
-			// 	console.log("nadsf", num_field[j]);
-			// }
+			initial_max = num_field[j];
+
+			findingGaussianArray(num_field[j]);
 		}
 		if (x >= 0 && x < width && y >= 0 && y < height && z >= 0 && z < depth) {
 			if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
-				// console.log("countaaa", actualCount, highestValue);
-				// break;
-				setVoxelAndNeighbors(x, y, z, actualCount, highestValue, lowerIntensityValue);
-				// count = count + 1;
+				setVoxelAndNeighbors(x, y, z, count, highestValue, lowerIntensityValue);
 			} else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
 				// Value is closer to middle
 				volumetricDataset[x][y][z] = middleValue;
-
-				// count = count + 1;
 			} else {
 				// Value is closer to lowest
 				volumetricDataset[x][y][z] = lowestValue;
-				// count = count + 1;
 			}
-			actualCount = actualCount + 1;
 		}
 		count = count + 1;
 	}
@@ -343,8 +308,6 @@ function generateVolumetricData(
 	const flattenAndWriteToFile = (data, filename, append = false) => {
 		const flattenedData = data.flat(2);
 		// const numberOf255Values = flattenedData.filter((value) => value == 255).length;
-		// console.log("nu", numberOf255Values);
-		// total = total + numberOf255Values;
 		const uint8Array = new Uint8Array(flattenedData);
 		const flag = append ? "a" : "w";
 		fs.writeFileSync(`${filename}.byte`, Buffer.from(uint8Array), { flag }); // 'a' flag appends to the file
@@ -359,7 +322,6 @@ function generateVolumetricData(
 			}
 			fs.writeFileSync(`${filename}.txt`, descriptionText);
 			// fs.writeFileSync(`${filename}.txt`, Buffer.from(uint8Array), { flag });
-			// console.log("ta", total);
 		}
 	};
 	const currentDate = new Date();
