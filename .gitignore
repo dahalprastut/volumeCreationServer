@@ -1,2 +1,4 @@
 node_modules/
 volume.byte
+vol*.byte
+vol*.txt

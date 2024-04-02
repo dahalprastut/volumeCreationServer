@@ -180,8 +180,8 @@ function generateVolumetricData(
 
 		for (let i = 0; i <= totalNumberOfPoints; i++) {
 			const thicknessValue =
-				(1 / (standardDeviation * Math.sqrt(2 * Math.PI))) *
-				Math.exp(-((xval - mean) ** 2) / (2 * standardDeviation ** 2));
+				(1.0 / (standardDeviation * Math.sqrt(2.0 * Math.PI))) *
+				Math.exp(-((xval - mean) ** 2) / (2.0 * standardDeviation ** 2));
 			intensityArr.push(thicknessValue);
 			xval += step;
 		}
@@ -210,8 +210,11 @@ function generateVolumetricData(
 	// Function to set the value for a given voxel and its neighbors
 	let memoizedResult = [];
 
+	findingGaussianArray(num_field[j]); // Is this needed? because we already did that in the first lop whicle chekcking count
+
 	const setVoxelAndNeighbors = (x, y, z, count, highestIntensity, lowestIntensity) => {
 		const result = scaledThicknessArr[count]; //Stores the width of each point
+
 		if (memoizedResult.find((el) => el[result]) === undefined) {
 			// Here I have calculated the intensity based on the number of points
 			// Since the width is for looped in all 3 dimentions, the width is increased which still follows the gaussian pattern
@@ -220,7 +223,12 @@ function generateVolumetricData(
 			// We can only see in 2 plane at one time in 2D. Hence, *2.
 			getTheGaussianIntenstity(result, highestIntensity, lowestIntensity);
 		}
+		// console.log("memoi", memoizedResult);
 		const getCorrectWidthArray = memoizedResult.find((el) => el[result])[result];
+
+		// if (result === 21) {
+		// 	console.log("ge", result, getCorrectWidthArray);
+		// }
 		for (let i = -result; i <= result; i++) {
 			for (let j = -result; j <= result; j++) {
 				for (let k = -result; k <= result; k++) {
@@ -229,7 +237,7 @@ function generateVolumetricData(
 					const newZ = z + k;
 
 					// Check if the new coordinates are within the dimensions of volumetricDataset
-					//Do this only if the result changes or store the result using length as it is like a parabola
+
 					if (
 						newX >= 0 &&
 						newX < width &&
@@ -240,7 +248,7 @@ function generateVolumetricData(
 						// Check for this case more as it might impact gaussian curve.
 						volumetricDataset[newX][newY][newZ] !== highestIntensity // when newX,newY and newZ are created, it might effect previous data
 					) {
-						// do The gaussian calculation again or see from the memoized data
+						// gaussian calculation again or see from the memoized data
 						const getMaxOfVoxels = Math.max(Math.abs(i), Math.abs(j), Math.abs(k));
 						// When getMaxOfVoxels is 0, it means that the line is the central line which should have highest intensity
 						// The concept is for x width, I will have 2*x + 1 number of points in 2D ( which is shown in the screen)
@@ -260,7 +268,20 @@ function generateVolumetricData(
 		}
 	};
 
-	findingGaussianArray(num_field[j]);
+	const getActualNumField = (numberOfFieldPoints, curr) => {
+		let arrayEnd = curr + numberOfFieldPoints;
+		let countForActualFieldLines = 0;
+		for (let i = curr; i < arrayEnd; i++) {
+			const x = Math.round(threeDimArr[0][i]);
+			const y = Math.round(threeDimArr[2][i]);
+			const z = Math.round(threeDimArr[1][i]);
+			if (x >= 0 && x < width && y >= 0 && y < height && z >= 0 && z < depth) {
+				countForActualFieldLines = countForActualFieldLines + 1;
+			}
+		}
+		return countForActualFieldLines;
+	};
+	let actualCount;
 
 	for (let i = 0; i < threeDimArr[0].length; i++) {
 		const x = Math.round(threeDimArr[0][i]);
@@ -273,6 +294,9 @@ function generateVolumetricData(
 		let diffToLowest = Math.abs(initial_max - lowest);
 
 		if (count === initial_max) {
+			count = 0;
+			actualCount = 0;
+
 			// console.log("diff", initial_max, highest, middle, lowest);
 			if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
 				obj.highest = obj.highest + 1;
@@ -282,35 +306,40 @@ function generateVolumetricData(
 				obj.lowest = obj.lowest + 1;
 			}
 			j = j + 1;
+			// if (initial_max === 3506) {
+			// 	console.log("befi", num_field[j]);
+			// }
 			initial_max = num_field[j];
-			count = 0;
-			findingGaussianArray(num_field[j]);
-		}
+			const countForActualFieldLines = getActualNumField(num_field[j], i);
+			findingGaussianArray(countForActualFieldLines);
 
-		if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
-			// Value is closer to highest
-			valueToSet = highestValue;
-		} else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
-			// Value is closer to middle
-			valueToSet = middleValue;
-		} else {
-			// Value is closer to lowest
-			valueToSet = lowestValue;
+			// findingGaussianArray(num_field[j]);
+			// if (initial_max == 9936) {
+			// 	console.log("vava", initial_max, valueToSet);
+			// 	console.log("nadsf", num_field[j]);
+			// }
 		}
-		// Check if the coordinates are within the dimensions of volumetricDataset
 		if (x >= 0 && x < width && y >= 0 && y < height && z >= 0 && z < depth) {
-			if (valueToSet === highestValue) {
-				// To have the highest value of bigger width
-				// This might be changed if every values must have the same width
-				setVoxelAndNeighbors(x, y, z, count, valueToSet, lowerIntensityValue); // Change this argument for dynamism
+			if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
+				// console.log("countaaa", actualCount, highestValue);
+				// break;
+				setVoxelAndNeighbors(x, y, z, actualCount, highestValue, lowerIntensityValue);
+				// count = count + 1;
+			} else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
+				// Value is closer to middle
+				volumetricDataset[x][y][z] = middleValue;
+
+				// count = count + 1;
 			} else {
-				volumetricDataset[x][y][z] = valueToSet;
+				// Value is closer to lowest
+				volumetricDataset[x][y][z] = lowestValue;
+				// count = count + 1;
 			}
+			actualCount = actualCount + 1;
 		}
 		count = count + 1;
 	}
 	console.log("onj", obj);
-
 	const flattenAndWriteToFile = (data, filename, append = false) => {
 		const flattenedData = data.flat(2);
 		// const numberOf255Values = flattenedData.filter((value) => value == 255).length;
