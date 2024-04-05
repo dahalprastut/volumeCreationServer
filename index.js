@@ -103,7 +103,6 @@ function generateVolumetricData(
   const width = UiDataSize || 512;
   const depth = UiDataSize || 512;
   const curveWidth = UiCurveWidth || 22;
-  console.log("cu", curveWidth);
 
   const filteredNums = num_field.filter((num) => num !== 0);
 
@@ -161,7 +160,6 @@ function generateVolumetricData(
     const minThickness = Math.min(...thicknessArr);
     // Scale the thickness values based on the maximum thickness
     const scalingFactor = (curveWidth - 1) / (maxThickness - minThickness);
-
     for (let value of thicknessArr) {
       const scaledValue = 1 + (value - minThickness) * scalingFactor;
       scaledThicknessArr.push(Math.round(scaledValue));
@@ -248,6 +246,7 @@ function generateVolumetricData(
       result
     ];
     const radius = result;
+    // Need to fixed intensity gauusian shape as the circumferance is set and the width is changed.
     for (let i = -result; i <= result; i++) {
       for (let j = -result; j <= result; j++) {
         for (let k = -result; k <= result; k++) {
@@ -256,7 +255,6 @@ function generateVolumetricData(
             const newX = x + i;
             const newY = y + j;
             const newZ = z + k;
-
             // Check if the new coordinates are within the dimensions of volumetricDataset
 
             if (
@@ -269,24 +267,8 @@ function generateVolumetricData(
               // Check for this case more as it might impact gaussian curve.
               volumetricDataset[newX][newY][newZ] !== highestIntensity // when newX,newY and newZ are created, it might effect previous data
             ) {
-              // gaussian calculation again or see from the memoized data
-              const getMaxOfVoxels = Math.max(
-                Math.abs(i),
-                Math.abs(j),
-                Math.abs(k)
-              );
-              // When getMaxOfVoxels is 0, it means that the line is the central line which should have highest intensity
-              // The concept is for x width, I will have 2*x + 1 number of points in 2D ( which is shown in the screen)
-              // The middle points are for highest intensity and the edges are for lower intensity (following Gaussian)
-              // So we have taken max of i, j and k which means the furthest it is in all dimention
-              // if [2,3,5] is the i,j,k then we know that we are talking about a value which is 5 points away in z direction which will have mid value + 5 intensity as a whole.
-
-              const calculateIndex =
-                getMaxOfVoxels == 0 ? result : result + getMaxOfVoxels;
+              const calculateIndex = result + Math.round(distance);
               const getValue = getCorrectWidthArray[calculateIndex];
-              // console.log("ge", result, getCorrectWidthArray);
-              // console.log("volumetricDataset[newX][newY][newZ]", volumetricDataset[newX][newY][newZ]);
-
               volumetricDataset[newX][newY][newZ] = getValue;
             }
           }
@@ -338,6 +320,7 @@ function generateVolumetricData(
   const flattenAndWriteToFile = (data, filename, append = false) => {
     fs.writeFileSync(`scaled.txt`, scaledThicknessArr.join(", "));
     const flattenedData = data.flat(2);
+
     // const numberOf255Values = flattenedData.filter((value) => value == 255).length;
     const uint8Array = new Uint8Array(flattenedData);
     const flag = append ? "a" : "w";
