@@ -6,6 +6,9 @@ const cors = require("cors");
 const app = express();
 const PORT = 3000; // You can change the port if needed
 
+const folderName = "Mag_Field_00_0.0_153";
+const fileLoc = `./${folderName}/field3.json`;
+
 app.use(express.json());
 
 app.use(cors());
@@ -14,28 +17,44 @@ app.use(cors());
 app.post("/generate-volumetric-data", (req, res) => {
   const {
     curveWidth,
+    curveWidthMiddle,
+    curveWidthLowest,
     dataSize,
     highestLoopValue,
     middleLoopValue,
     lowestLoopValue,
     lowestIntensityValueInHighestLoop,
+    lowestIntensityValueInMiddleLoop,
+    lowestIntensityValueInLowestLoop,
     loopStandardDeviation,
+    middleLoopStandardDeviation,
+    lowestLoopStandardDeviation,
     intensityStandardDeviation,
+    middleIntensityStandardDeviation,
+    lowestIntensityStandardDeviation,
     fileName,
   } = req.body;
 
   // Your volumetric data generation logic here
-  // Note: For simplicity, I'll keep the function you provided as is
+  //
 
   const volumeData = generateVolumetricData(
     curveWidth,
+    curveWidthMiddle,
+    curveWidthLowest,
     dataSize,
     highestLoopValue,
     middleLoopValue,
     lowestLoopValue,
     lowestIntensityValueInHighestLoop,
+    lowestIntensityValueInMiddleLoop,
+    lowestIntensityValueInLowestLoop,
     loopStandardDeviation,
+    middleLoopStandardDeviation,
+    lowestLoopStandardDeviation,
     intensityStandardDeviation,
+    middleIntensityStandardDeviation,
+    lowestIntensityStandardDeviation,
     fileName
   );
 
@@ -60,7 +79,7 @@ app.get("/download/:filename", (req, res) => {
     return;
   }
 
-  const filePath = `${__dirname}/${filename}`; // Path to the file
+  const filePath = `${__dirname}/${folderName}/${filename}`; // Path to the file
 
   // Set headers for file download
   res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
@@ -70,16 +89,24 @@ app.get("/download/:filename", (req, res) => {
   res.sendFile(filePath);
 });
 
-// Function to generate volumetric data (same as your original function)
+// Function to generate volumetric data (same as original function)
 function generateVolumetricData(
   UiCurveWidth,
+  UiCurveWidthMiddle,
+  UiCurveWidthLowest,
   UiDataSize,
   UiHighestLoopValue,
   UiMiddleLoopValue,
   UiLowestLoopValue,
   UiLowestIntensityValueInHighestLoop,
+  UiLowestIntensityValueInMiddleLoop,
+  UiLowestIntensityValueInLowestLoop,
   UiLoopStandardDeviation,
+  UiMiddleLoopStandardDeviation,
+  UiLowestLoopStandardDeviation,
   UiIntensityStandardDeviation,
+  UiMiddleIntensityStandardDeviation,
+  UiLowestIntensityStandardDeviation,
   fileName
 ) {
   // Your existing volumetric data generation logic here
@@ -88,34 +115,74 @@ function generateVolumetricData(
   const startTime = performance.now();
 
   // Read the JSON file
-  const jsonData = fs.readFileSync("./field_lines4.json", "utf-8");
+  const jsonData = fs.readFileSync(fileLoc, "utf-8");
 
   // Parse the JSON data
   const threeDimArr = JSON.parse(jsonData);
   const highestValue = UiHighestLoopValue || 350;
   const middleValue = UiMiddleLoopValue || 140;
   const lowestValue = UiLowestLoopValue || 90;
-  const lowerIntensityValue = UiLowestIntensityValueInHighestLoop || 100;
+  const highestLoopLowerIntensityValue =
+    UiLowestIntensityValueInHighestLoop || 100;
+  const middleLoopLowerIntensityValue =
+    UiLowestIntensityValueInMiddleLoop || 80;
+  const lowestLoopLowerIntensityValue =
+    UiLowestIntensityValueInLowestLoop || 80;
 
-  const num_field = threeDimArr[4];
+  const num_field = threeDimArr[3]; //This is changed in alpha json file. In dopole it was [4]
 
   const height = UiDataSize || 512;
   const width = UiDataSize || 512;
   const depth = UiDataSize || 512;
   const curveWidth = UiCurveWidth || 22;
+  const curveWidthMiddle = UiCurveWidthMiddle || 18;
+  const curveWidthLowest = UiCurveWidthLowest || 14;
+
+  const highestLoopStandardDeviation = UiLoopStandardDeviation || 0.8;
+  const middleLoopStandardDeviation = UiMiddleLoopStandardDeviation || 0.8;
+  const lowestLoopStandardDeviation = UiLowestLoopStandardDeviation || 0.8;
+
+  const highestIntensityStandardDeviation = UiIntensityStandardDeviation || 1;
+  const middleIntensityStandardDeviation =
+    UiMiddleIntensityStandardDeviation || 1;
+  const lowestIntensityStandardDeviation =
+    UiLowestIntensityStandardDeviation || 1;
+
+  console.log("values", {
+    curveWidth,
+    curveWidthMiddle,
+    curveWidthLowest,
+    highestValue,
+    middleValue,
+    lowestValue,
+    highestLoopLowerIntensityValue,
+    middleLoopLowerIntensityValue,
+    lowestLoopLowerIntensityValue,
+    highestLoopStandardDeviation,
+    middleLoopStandardDeviation,
+    lowestLoopStandardDeviation,
+    highestIntensityStandardDeviation,
+    middleIntensityStandardDeviation,
+    lowestIntensityStandardDeviation,
+  });
 
   const filteredNums = num_field.filter((num) => num !== 0);
 
   // Find the highest, lowest (excluding 0), and middle values
   // This is done to set a limit to what might be the highest, lowest and middle values
   // const highest = filteredNums.sort((a, b) => a - b)[filteredNums.length - 28];
-  const highest = filteredNums.sort((a, b) => a - b)[filteredNums.length - 1];
+  // const highest = filteredNums.sort((a, b) => a - b)[filteredNums.length - 1];
+  const highest = filteredNums.sort((a, b) => a - b)[filteredNums.length - 2];
 
   // const lowest = Math.min(...filteredNums);
-  const lowest = filteredNums.sort((a, b) => a - b)[0];
+  // const lowest = filteredNums.sort((a, b) => a - b)[0];
+  const lowest = filteredNums.sort((a, b) => a - b)[45];
   // const middle = filteredNums.sort((a, b) => a - b)[Math.floor(filteredNums.length / 2) - 10];
+  // const middle = filteredNums.sort((a, b) => a - b)[
+  //   Math.floor(filteredNums.length) - 2
+  // ];
   const middle = filteredNums.sort((a, b) => a - b)[
-    Math.floor(filteredNums.length) - 2
+    Math.floor(filteredNums.length) - 1
   ];
 
   const volumetricDataset = new Array(width)
@@ -136,14 +203,14 @@ function generateVolumetricData(
   let scaledThicknessArr = [];
 
   // Function to find the width of each point
-  const findingGaussianArray = (max) => {
+  const findingGaussianArray = (max, dynamicCurveWidth, SD) => {
     scaledThicknessArr = [];
     const start = -2;
     const end = 2;
     const mean = 0;
     const totalNumberOfPoints = max;
     const thicknessArr = [];
-    const standardDeviation = UiLoopStandardDeviation || 0.8;
+    const standardDeviation = SD;
 
     let xval = start;
 
@@ -159,7 +226,8 @@ function generateVolumetricData(
     const maxThickness = Math.max(...thicknessArr);
     const minThickness = Math.min(...thicknessArr);
     // Scale the thickness values based on the maximum thickness
-    const scalingFactor = (curveWidth - 1) / (maxThickness - minThickness);
+    const scalingFactor =
+      (dynamicCurveWidth - 1) / (maxThickness - minThickness);
     for (let value of thicknessArr) {
       const scaledValue = 1 + (value - minThickness) * scalingFactor;
       scaledThicknessArr.push(Math.round(scaledValue));
@@ -173,7 +241,8 @@ function generateVolumetricData(
   const getTheGaussianIntenstity = (
     width,
     highestIntensity,
-    lowestIntensity
+    lowestIntensity,
+    SD
   ) => {
     scaledIntensityArr = [];
     const start = -2;
@@ -181,7 +250,7 @@ function generateVolumetricData(
     const mean = 0;
     const totalNumberOfPoints = width * 2;
     const intensityArr = [];
-    const standardDeviation = UiIntensityStandardDeviation || 1;
+    const standardDeviation = SD;
 
     let xval = start;
 
@@ -221,7 +290,31 @@ function generateVolumetricData(
   // Function to set the value for a given voxel and its neighbors
   let memoizedResult = [];
 
-  findingGaussianArray(num_field[j]); // Is this needed? because we already did that in the first lop whicle chekcking count
+  let diffToHighest = Math.abs(initial_max - highest);
+  let diffToMidd = Math.abs(initial_max - middle);
+  let diffToLowest = Math.abs(initial_max - lowest);
+
+  if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
+    findingGaussianArray(
+      num_field[j],
+      curveWidth,
+      highestLoopStandardDeviation
+    );
+  } else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
+    findingGaussianArray(
+      num_field[j],
+      curveWidthMiddle,
+      middleLoopStandardDeviation
+    );
+  } else {
+    findingGaussianArray(
+      num_field[j],
+      curveWidthLowest,
+      lowestLoopStandardDeviation
+    );
+  }
+
+  // findingGaussianArray(num_field[j], curveWidth); // Is this needed? because we already did that in the first lop whicle chekcking count
 
   const setVoxelAndNeighbors = (
     x,
@@ -229,17 +322,18 @@ function generateVolumetricData(
     z,
     count,
     highestIntensity,
-    lowestIntensity
+    lowestIntensity,
+    SD
   ) => {
     const result = scaledThicknessArr[count]; //Stores the width of each point
     // console.log("max", scaledThicknessArr.indexOf(21));
     if (memoizedResult.find((el) => el[result]) === undefined) {
       // Here I have calculated the intensity based on the number of points
-      // Since the width is for looped in all 3 dimentions, the width is increased which still follows the gaussian pattern
+      // Since the width is for loop in all 3 dimensions, the width is increased which still follows the gaussian pattern
       // So for calculating the intensity I have also multiplied the number of points by 2 inside the function
       // This is done as we can only see one plane in the screen which is 2D at one time and since the width has been incremented in all 3 directions
       // We can only see in 2 plane at one time in 2D. Hence, *2.
-      getTheGaussianIntenstity(result, highestIntensity, lowestIntensity);
+      getTheGaussianIntenstity(result, highestIntensity, lowestIntensity, SD);
     }
     // console.log("memoi", memoizedResult);
     const getCorrectWidthArray = memoizedResult.find((el) => el[result])[
@@ -283,35 +377,88 @@ function generateVolumetricData(
     const z = Math.round(threeDimArr[1][i]);
 
     // Calculate the absolute differences to know where the curve falls closer which can be used to set the voxel value
-    let diffToHighest = Math.abs(initial_max - highest);
-    let diffToMidd = Math.abs(initial_max - middle);
-    let diffToLowest = Math.abs(initial_max - lowest);
+    diffToHighest = Math.abs(initial_max - highest);
+    diffToMidd = Math.abs(initial_max - middle);
+    diffToLowest = Math.abs(initial_max - lowest);
 
     if (count === initial_max) {
       count = 0;
 
-      if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
-        obj.highest = obj.highest + 1;
-      } else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
-        obj.middle = obj.middle + 1;
-      } else {
-        obj.lowest = obj.lowest + 1;
-      }
+      // if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
+      //   obj.highest = obj.highest + 1;
+      // } else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
+      //   obj.middle = obj.middle + 1;
+      // } else {
+      //   obj.lowest = obj.lowest + 1;
+      // }
       j = j + 1;
 
       initial_max = num_field[j];
 
-      findingGaussianArray(num_field[j]);
+      // Calculate the absolute differences to know where the curve falls closer which can be used to set the voxel value
+      diffToHighest = Math.abs(initial_max - highest);
+      diffToMidd = Math.abs(initial_max - middle);
+      diffToLowest = Math.abs(initial_max - lowest);
+
+      if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
+        findingGaussianArray(
+          num_field[j],
+          curveWidth,
+          highestLoopStandardDeviation
+        );
+        obj.highest = obj.highest + 1;
+      } else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
+        // console.log("here", num_field[j]);
+        findingGaussianArray(
+          num_field[j],
+          curveWidthMiddle,
+          middleLoopStandardDeviation
+        );
+        obj.middle = obj.middle + 1;
+      } else {
+        findingGaussianArray(
+          num_field[j],
+          curveWidthLowest,
+          lowestLoopStandardDeviation
+        );
+        obj.lowest = obj.lowest + 1;
+      }
+
+      // findingGaussianArray(num_field[j]);
     }
     if (x >= 0 && x < width && y >= 0 && y < height && z >= 0 && z < depth) {
       if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
-        setVoxelAndNeighbors(x, y, z, count, highestValue, lowerIntensityValue);
+        setVoxelAndNeighbors(
+          x,
+          y,
+          z,
+          count,
+          highestValue,
+          highestLoopLowerIntensityValue,
+          highestIntensityStandardDeviation
+        );
       } else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
         // Value is closer to middle
-        volumetricDataset[x][y][z] = middleValue;
+        setVoxelAndNeighbors(
+          x,
+          y,
+          z,
+          count,
+          middleValue,
+          middleLoopLowerIntensityValue,
+          middleIntensityStandardDeviation
+        );
       } else {
         // Value is closer to lowest
-        volumetricDataset[x][y][z] = lowestValue;
+        setVoxelAndNeighbors(
+          x,
+          y,
+          z,
+          count,
+          lowestValue,
+          lowestLoopLowerIntensityValue,
+          lowestIntensityStandardDeviation
+        );
       }
     }
     count = count + 1;
@@ -324,7 +471,11 @@ function generateVolumetricData(
     // const numberOf255Values = flattenedData.filter((value) => value == 255).length;
     const uint8Array = new Uint8Array(flattenedData);
     const flag = append ? "a" : "w";
-    fs.writeFileSync(`${filename}.byte`, Buffer.from(uint8Array), { flag }); // 'a' flag appends to the file
+    fs.writeFileSync(
+      `./${folderName}/${filename}.byte`,
+      Buffer.from(uint8Array),
+      { flag }
+    ); // 'a' flag appends to the file
     console.log(
       `Data ${
         append ? "appended" : "created"
@@ -338,7 +489,7 @@ function generateVolumetricData(
       for (const [key, value] of Object.entries(description)) {
         descriptionText += `${key}: ${value}\n`;
       }
-      fs.writeFileSync(`${filename}.txt`, descriptionText);
+      fs.writeFileSync(`./${folderName}/${filename}.txt`, descriptionText);
       // fs.writeFileSync(`${filename}.txt`, Buffer.from(uint8Array), { flag });
     }
   };
