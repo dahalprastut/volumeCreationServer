@@ -1,6 +1,8 @@
 // server.js
 const express = require("express");
 const fs = require("fs");
+const { exec } = require("child_process");
+const path = require("path");
 const cors = require("cors");
 
 const app = express();
@@ -139,9 +141,9 @@ function generateVolumetricData(
   const height = UiDataSize || 512;
   const width = UiDataSize || 512;
   const depth = UiDataSize || 512;
-  const curveWidth = UiCurveWidth || 22;
-  const curveWidthMiddle = UiCurveWidthMiddle || 18;
-  const curveWidthLowest = UiCurveWidthLowest || 14;
+  const curveWidth = UiCurveWidth || 12;
+  const curveWidthMiddle = UiCurveWidthMiddle || 5;
+  const curveWidthLowest = UiCurveWidthLowest || 3;
 
   const highestLoopStandardDeviation = UiLoopStandardDeviation || 0.8;
   const middleLoopStandardDeviation = UiMiddleLoopStandardDeviation || 0.8;
@@ -504,22 +506,6 @@ function generateVolumetricData(
     currentDate.getMonth() + 1
   }/${currentDate.getDate()}/${currentDate.getFullYear()}`;
 
-  // const description = {
-  //   "file Name": `${fileName}.byte`,
-  //   "Curve Width": UiCurveWidth,
-  //   "Created Date": formattedDate,
-  //   "Data Size": UiDataSize,
-  //   "Highest Loop Value": UiHighestLoopValue,
-  //   "Middle Loop Value": UiMiddleLoopValue,
-  //   "Lowest Loop Value": UiLowestLoopValue,
-  //   "Lowest Intensity Value": UiLowestIntensityValueInHighestLoop,
-  //   "Loop Standard Deviation": UiLoopStandardDeviation,
-  //   "Intensity Standard Deviation": UiIntensityStandardDeviation,
-  //   "Number of Highest Loop": obj.highest,
-  //   "Mumber of Middle Loop": obj.middle,
-  //   "Number of Lowest Loop": obj.lowest,
-  //   // Add more properties as needed
-  // };
   const description = {
     "file Name": `${fileName}.byte`,
     alphaValue,
@@ -555,6 +541,39 @@ function generateVolumetricData(
 
   // Flatten and append the second half
   flattenAndWriteToFile(secondHalf, fileName, true);
+
+  // Function to copy .byte file to CUDA folder, run make, and execute
+  const triggerCuda = (cudaFolderPath, byteFilePath, byteFileName) => {
+    // Step 1: Copy .byte file to CUDA folder
+    const cudaByteFilePath = path.join(
+      `${cudaFolderPath}/data`,
+      byteFileName + ".byte"
+    );
+    fs.copyFileSync(byteFilePath, cudaByteFilePath);
+    console.log(`Copied ${byteFileName}.byte to CUDA folder.`);
+
+    // Step 2: Run 'make' inside CUDA folder
+    exec("make", { cwd: cudaFolderPath }, (err, stdout, stderr) => {
+      if (err) {
+        console.error(`Error during make: ${stderr}`);
+        return;
+      }
+      console.log(`Make executed successfully: ${stdout}`);
+
+      // Step 3: Run the CUDA program
+      exec("./volumeRender", { cwd: cudaFolderPath }, (err, stdout, stderr) => {
+        if (err) {
+          console.error(`Error during CUDA execution: ${stderr}`);
+          return;
+        }
+        console.log(`CUDA program output: ${stdout}`);
+      });
+    });
+  };
+
+  const cudaPath = `/home/dahalp/prastut/cuda-samples/Samples/5_Domain_Specific/volumeRender/`;
+  const dataPath = `./${folderName}/${fileName}.byte`;
+  triggerCuda(cudaPath, dataPath, fileName);
 
   return volumetricDataset;
 }
