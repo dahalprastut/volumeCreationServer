@@ -6,9 +6,6 @@ const cors = require("cors");
 const app = express();
 const PORT = 3000; // You can change the port if needed
 
-const folderName = "Mag_Field_00_0.0_153";
-const fileLoc = `./${folderName}/field3.json`;
-
 app.use(express.json());
 
 app.use(cors());
@@ -16,6 +13,7 @@ app.use(cors());
 // Route to generate volumetric data
 app.post("/generate-volumetric-data", (req, res) => {
   const {
+    alphaValue,
     curveWidth,
     curveWidthMiddle,
     curveWidthLowest,
@@ -39,6 +37,7 @@ app.post("/generate-volumetric-data", (req, res) => {
   //
 
   const volumeData = generateVolumetricData(
+    alphaValue,
     curveWidth,
     curveWidthMiddle,
     curveWidthLowest,
@@ -64,8 +63,9 @@ app.post("/generate-volumetric-data", (req, res) => {
 });
 
 // Route to handle file download
-app.get("/download/:filename", (req, res) => {
+app.get("/download/:alphaValue/:filename", (req, res) => {
   const filename = req.params.filename;
+  const folderName = `Mag_Field_00_[${req.params.alphaValue}]_153`;
   const fileExtension = filename.split(".").pop(); // Extract the file extension
 
   let contentType;
@@ -91,6 +91,7 @@ app.get("/download/:filename", (req, res) => {
 
 // Function to generate volumetric data (same as original function)
 function generateVolumetricData(
+  UiAlphaValue,
   UiCurveWidth,
   UiCurveWidthMiddle,
   UiCurveWidthLowest,
@@ -110,6 +111,10 @@ function generateVolumetricData(
   fileName
 ) {
   // Your existing volumetric data generation logic here
+  const alphaValue = UiAlphaValue || 0.0;
+
+  const folderName = `Mag_Field_00_[${alphaValue}]_153`;
+  const fileLoc = `./${folderName}/field3.json`;
 
   // record start time
   const startTime = performance.now();
@@ -149,6 +154,7 @@ function generateVolumetricData(
     UiLowestIntensityStandardDeviation || 1;
 
   console.log("values", {
+    alphaValue,
     curveWidth,
     curveWidthMiddle,
     curveWidthLowest,
@@ -498,20 +504,40 @@ function generateVolumetricData(
     currentDate.getMonth() + 1
   }/${currentDate.getDate()}/${currentDate.getFullYear()}`;
 
+  // const description = {
+  //   "file Name": `${fileName}.byte`,
+  //   "Curve Width": UiCurveWidth,
+  //   "Created Date": formattedDate,
+  //   "Data Size": UiDataSize,
+  //   "Highest Loop Value": UiHighestLoopValue,
+  //   "Middle Loop Value": UiMiddleLoopValue,
+  //   "Lowest Loop Value": UiLowestLoopValue,
+  //   "Lowest Intensity Value": UiLowestIntensityValueInHighestLoop,
+  //   "Loop Standard Deviation": UiLoopStandardDeviation,
+  //   "Intensity Standard Deviation": UiIntensityStandardDeviation,
+  //   "Number of Highest Loop": obj.highest,
+  //   "Mumber of Middle Loop": obj.middle,
+  //   "Number of Lowest Loop": obj.lowest,
+  //   // Add more properties as needed
+  // };
   const description = {
     "file Name": `${fileName}.byte`,
-    "Curve Width": UiCurveWidth,
-    "Created Date": formattedDate,
-    "Data Size": UiDataSize,
-    "Highest Loop Value": UiHighestLoopValue,
-    "Middle Loop Value": UiMiddleLoopValue,
-    "Lowest Loop Value": UiLowestLoopValue,
-    "Lowest Intensity Value": UiLowestIntensityValueInHighestLoop,
-    "Loop Standard Deviation": UiLoopStandardDeviation,
-    "Intensity Standard Deviation": UiIntensityStandardDeviation,
-    "Number of Highest Loop": obj.highest,
-    "Mumber of Middle Loop": obj.middle,
-    "Number of Lowest Loop": obj.lowest,
+    alphaValue,
+    curveWidth,
+    curveWidthMiddle,
+    curveWidthLowest,
+    highestValue,
+    middleValue,
+    lowestValue,
+    highestLoopLowerIntensityValue,
+    middleLoopLowerIntensityValue,
+    lowestLoopLowerIntensityValue,
+    highestLoopStandardDeviation,
+    middleLoopStandardDeviation,
+    lowestLoopStandardDeviation,
+    highestIntensityStandardDeviation,
+    middleIntensityStandardDeviation,
+    lowestIntensityStandardDeviation,
     // Add more properties as needed
   };
   // Assuming half of the volumetricDataset
