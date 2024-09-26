@@ -135,6 +135,7 @@ function generateVolumetricData(
     UiLowestIntensityValueInMiddleLoop || 80;
   const lowestLoopLowerIntensityValue =
     UiLowestIntensityValueInLowestLoop || 80;
+  console.log("firs", threeDimArr[0][0], threeDimArr[0][1]);
 
   const num_field = threeDimArr[3]; //This is changed in alpha json file. In dopole it was [4]
 
@@ -552,7 +553,23 @@ function generateVolumetricData(
     fs.copyFileSync(byteFilePath, cudaByteFilePath);
     console.log(`Copied ${byteFileName}.byte to CUDA folder.`);
 
-    // Step 2: Run 'make' inside CUDA folder
+    // Step 2: Replace the volumeFilename in the CUDA .cpp file
+    const cudaSourcePath = path.join(cudaFolderPath, "volumeRender.cpp");
+    let sourceCode = fs.readFileSync(cudaSourcePath, "utf8");
+
+    // Replace the current volumeFilename with the new one
+    const newSourceCode = sourceCode.replace(
+      /const char \*volumeFilename = "(.*)";/,
+      `const char *volumeFilename = "${byteFileName}.byte";`
+    );
+
+    // Write the updated source code back to the .cpp file
+    fs.writeFileSync(cudaSourcePath, newSourceCode, "utf8");
+    console.log(
+      `Updated volumeFilename in CUDA source to ${byteFileName}.byte.`
+    );
+
+    // Step 3: Run 'make' inside CUDA folder
     exec("make", { cwd: cudaFolderPath }, (err, stdout, stderr) => {
       if (err) {
         console.error(`Error during make: ${stderr}`);
@@ -560,7 +577,7 @@ function generateVolumetricData(
       }
       console.log(`Make executed successfully: ${stdout}`);
 
-      // Step 3: Run the CUDA program
+      // Step 4: Run the CUDA program
       exec("./volumeRender", { cwd: cudaFolderPath }, (err, stdout, stderr) => {
         if (err) {
           console.error(`Error during CUDA execution: ${stderr}`);
