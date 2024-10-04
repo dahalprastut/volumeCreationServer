@@ -32,6 +32,9 @@ app.post("/generate-volumetric-data", (req, res) => {
     intensityStandardDeviation,
     middleIntensityStandardDeviation,
     lowestIntensityStandardDeviation,
+    highestLoopPercentage,
+    middleLoopPercentage,
+    lowestLoopPercentage,
     fileName,
   } = req.body;
 
@@ -56,6 +59,9 @@ app.post("/generate-volumetric-data", (req, res) => {
     intensityStandardDeviation,
     middleIntensityStandardDeviation,
     lowestIntensityStandardDeviation,
+    highestLoopPercentage,
+    middleLoopPercentage,
+    lowestLoopPercentage,
     fileName
   );
 
@@ -110,6 +116,9 @@ function generateVolumetricData(
   UiIntensityStandardDeviation,
   UiMiddleIntensityStandardDeviation,
   UiLowestIntensityStandardDeviation,
+  UIHighestLoopPercentage,
+  UIMiddleLoopPercentage,
+  UILowestLoopPercentage,
   fileName
 ) {
   // Your existing volumetric data generation logic here
@@ -135,7 +144,6 @@ function generateVolumetricData(
     UiLowestIntensityValueInMiddleLoop || 80;
   const lowestLoopLowerIntensityValue =
     UiLowestIntensityValueInLowestLoop || 80;
-  console.log("firs", threeDimArr[0][0], threeDimArr[0][1]);
 
   const num_field = threeDimArr[3]; //This is changed in alpha json file. In dopole it was [4]
 
@@ -156,6 +164,11 @@ function generateVolumetricData(
   const lowestIntensityStandardDeviation =
     UiLowestIntensityStandardDeviation || 1;
 
+  // Dynamic percentage values (can be changed as needed)
+  const highestPercentage = UIHighestLoopPercentage || 50; // percentage for highest
+  const middlePercentage = UIMiddleLoopPercentage || 30; // percentage for middle
+  const lowestPercentage = UILowestLoopPercentage || 20; // percentage for lowest
+
   console.log("values", {
     alphaValue,
     curveWidth,
@@ -173,26 +186,32 @@ function generateVolumetricData(
     highestIntensityStandardDeviation,
     middleIntensityStandardDeviation,
     lowestIntensityStandardDeviation,
+    highestPercentage,
+    middlePercentage,
+    lowestPercentage,
   });
 
   const filteredNums = num_field.filter((num) => num !== 0);
+  filteredNums.sort((a, b) => a - b);
 
-  // Find the highest, lowest (excluding 0), and middle values
-  // This is done to set a limit to what might be the highest, lowest and middle values
-  // const highest = filteredNums.sort((a, b) => a - b)[filteredNums.length - 28];
-  // const highest = filteredNums.sort((a, b) => a - b)[filteredNums.length - 1];
-  const highest = filteredNums.sort((a, b) => a - b)[filteredNums.length - 2];
+  // Calculate number of items in each category
+  const highestCount = Math.floor(
+    (highestPercentage / 100) * filteredNums.length
+  );
+  const middleCount = Math.floor(
+    (middlePercentage / 100) * filteredNums.length
+  );
+  const lowestCount = filteredNums.length - highestCount - middleCount; // Remainder goes to lowest
 
-  // const lowest = Math.min(...filteredNums);
-  // const lowest = filteredNums.sort((a, b) => a - b)[0];
-  const lowest = filteredNums.sort((a, b) => a - b)[45];
-  // const middle = filteredNums.sort((a, b) => a - b)[Math.floor(filteredNums.length / 2) - 10];
-  // const middle = filteredNums.sort((a, b) => a - b)[
-  //   Math.floor(filteredNums.length) - 2
-  // ];
-  const middle = filteredNums.sort((a, b) => a - b)[
-    Math.floor(filteredNums.length) - 1
-  ];
+  // Index boundaries for each category
+  const highestStartIdx = filteredNums.length - highestCount; // Highest category starts from here
+  const middleStartIdx = lowestCount; // Middle category starts from here
+  const lowestEndIdx = middleStartIdx - 1; // Lowest category ends here
+
+  // Values for highest, middle, and lowest
+  const highest = filteredNums.slice(highestStartIdx); // Highest values
+  const middle = filteredNums.slice(middleStartIdx, highestStartIdx); // Middle values
+  const lowest = filteredNums.slice(0, lowestEndIdx + 1); // Lowest values
 
   const volumetricDataset = new Array(width)
     .fill(0)
@@ -386,9 +405,9 @@ function generateVolumetricData(
     const z = Math.round(threeDimArr[1][i]);
 
     // Calculate the absolute differences to know where the curve falls closer which can be used to set the voxel value
-    diffToHighest = Math.abs(initial_max - highest);
-    diffToMidd = Math.abs(initial_max - middle);
-    diffToLowest = Math.abs(initial_max - lowest);
+    // diffToHighest = Math.abs(initial_max - highest);
+    // diffToMidd = Math.abs(initial_max - middle);
+    // diffToLowest = Math.abs(initial_max - lowest);
 
     if (count === initial_max) {
       count = 0;
@@ -405,18 +424,18 @@ function generateVolumetricData(
       initial_max = num_field[j];
 
       // Calculate the absolute differences to know where the curve falls closer which can be used to set the voxel value
-      diffToHighest = Math.abs(initial_max - highest);
-      diffToMidd = Math.abs(initial_max - middle);
-      diffToLowest = Math.abs(initial_max - lowest);
+      // diffToHighest = Math.abs(initial_max - highest);
+      // diffToMidd = Math.abs(initial_max - middle);
+      // diffToLowest = Math.abs(initial_max - lowest);
 
-      if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
+      if (highest.includes(initial_max)) {
         findingGaussianArray(
           num_field[j],
           curveWidth,
           highestLoopStandardDeviation
         );
         obj.highest = obj.highest + 1;
-      } else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
+      } else if (middle.includes(initial_max)) {
         // console.log("here", num_field[j]);
         findingGaussianArray(
           num_field[j],
@@ -436,7 +455,7 @@ function generateVolumetricData(
       // findingGaussianArray(num_field[j]);
     }
     if (x >= 0 && x < width && y >= 0 && y < height && z >= 0 && z < depth) {
-      if (diffToHighest < diffToMidd && diffToHighest < diffToLowest) {
+      if (highest.includes(initial_max)) {
         setVoxelAndNeighbors(
           x,
           y,
@@ -446,7 +465,7 @@ function generateVolumetricData(
           highestLoopLowerIntensityValue,
           highestIntensityStandardDeviation
         );
-      } else if (diffToMidd < diffToHighest && diffToMidd < diffToLowest) {
+      } else if (middle.includes(initial_max)) {
         // Value is closer to middle
         setVoxelAndNeighbors(
           x,
@@ -525,6 +544,9 @@ function generateVolumetricData(
     highestIntensityStandardDeviation,
     middleIntensityStandardDeviation,
     lowestIntensityStandardDeviation,
+    highestPercentage,
+    middlePercentage,
+    lowestPercentage,
     // Add more properties as needed
   };
   // Assuming half of the volumetricDataset
