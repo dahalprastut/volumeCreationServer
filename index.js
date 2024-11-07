@@ -10,6 +10,8 @@ const PORT = 3000; // You can change the port if needed
 
 app.use(express.json());
 
+const loopCount = 150;
+
 app.use(cors());
 
 // Route to generate volumetric data
@@ -71,31 +73,38 @@ app.post("/generate-volumetric-data", (req, res) => {
 });
 
 // Route to handle file download
-app.get("/download/:alphaValue/:filename", (req, res) => {
-  const filename = req.params.filename;
-  const folderName = `Mag_Field_00_[${req.params.alphaValue}]_153`;
-  const fileExtension = filename.split(".").pop(); // Extract the file extension
+app.get(
+  "/download/:alphaValue/:highestLoopPercentage/:middleLoopPercentage/:lowestLoopPercentage/:filename",
+  (req, res) => {
+    const filename = req.params.filename;
+    let nameWithoutExtension = filename.split(".").slice(0, -1).join(".");
+    const folderName = `Mag_Field_00_[${req.params.alphaValue}]_${loopCount}`;
+    console.log("here", nameWithoutExtension);
+    const subFolderName = `${req.params.highestLoopPercentage}_${req.params.middleLoopPercentage}_${req.params.lowestLoopPercentage}_${nameWithoutExtension}`;
+    console.log("subFolderName", subFolderName);
+    const fileExtension = filename.split(".").pop(); // Extract the file extension
 
-  let contentType;
-  if (fileExtension === "txt") {
-    contentType = "text/plain";
-  } else if (fileExtension === "byte") {
-    contentType = "application/octet-stream";
-  } else {
-    // Handle unsupported file types
-    res.status(400).send("Unsupported file type");
-    return;
+    let contentType;
+    if (fileExtension === "txt") {
+      contentType = "text/plain";
+    } else if (fileExtension === "byte") {
+      contentType = "application/octet-stream";
+    } else {
+      // Handle unsupported file types
+      res.status(400).send("Unsupported file type");
+      return;
+    }
+
+    const filePath = `${__dirname}/${folderName}/${subFolderName}/${filename}`; // Path to the file
+
+    // Set headers for file download
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+    res.setHeader("Content-Type", contentType);
+
+    // Send the file as response
+    res.sendFile(filePath);
   }
-
-  const filePath = `${__dirname}/${folderName}/${filename}`; // Path to the file
-
-  // Set headers for file download
-  res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
-  res.setHeader("Content-Type", contentType);
-
-  // Send the file as response
-  res.sendFile(filePath);
-});
+);
 
 // Function to generate volumetric data (same as original function)
 function generateVolumetricData(
@@ -121,10 +130,12 @@ function generateVolumetricData(
   UILowestLoopPercentage,
   fileName
 ) {
+  console.log("asdfavewq", fileName);
   // Your existing volumetric data generation logic here
   const alphaValue = UiAlphaValue || 0.0;
 
-  const folderName = `Mag_Field_00_[${alphaValue}]_153`;
+  const folderName = `Mag_Field_00_[${alphaValue}]_${loopCount}`;
+  const subFolderName = `${UIHighestLoopPercentage}_${UIMiddleLoopPercentage}_${UILowestLoopPercentage}_${fileName}`;
   const fileLoc = `./${folderName}/field3.json`;
 
   // record start time
@@ -493,32 +504,45 @@ function generateVolumetricData(
   }
   console.log("onj", obj);
   const flattenAndWriteToFile = (data, filename, append = false) => {
-    fs.writeFileSync(`scaled.txt`, scaledThicknessArr.join(", "));
-    const flattenedData = data.flat(2);
+    // Ensure subfolder exists
+    const folderPath = path.join(folderName, subFolderName);
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+      console.log(`Folder "${folderPath}" created successfully.`);
+    }
 
-    // const numberOf255Values = flattenedData.filter((value) => value == 255).length;
+    fs.writeFileSync(`scaled.txt`, scaledThicknessArr.join(", "));
+
+    const flattenedData = data.flat(2);
     const uint8Array = new Uint8Array(flattenedData);
     const flag = append ? "a" : "w";
+
     fs.writeFileSync(
-      `./${folderName}/${filename}.byte`,
+      path.join(folderPath, `${filename}.byte`),
       Buffer.from(uint8Array),
       { flag }
     ); // 'a' flag appends to the file
+
     console.log(
       `Data ${
         append ? "appended" : "created"
       } to file "${filename}.byte" successfully.`
     );
+
     if (append) {
       const endTime = performance.now();
       const timeInSeconds = (endTime - startTime) / 1000;
-      console.log("time taken = ", timeInSeconds);
+      console.log("Time taken =", timeInSeconds);
+
       let descriptionText = `Time Taken: ${timeInSeconds}\n`;
       for (const [key, value] of Object.entries(description)) {
         descriptionText += `${key}: ${value}\n`;
       }
-      fs.writeFileSync(`./${folderName}/${filename}.txt`, descriptionText);
-      // fs.writeFileSync(`${filename}.txt`, Buffer.from(uint8Array), { flag });
+
+      fs.writeFileSync(
+        path.join(folderPath, `${filename}.txt`),
+        descriptionText
+      );
     }
   };
   const currentDate = new Date();
@@ -547,6 +571,7 @@ function generateVolumetricData(
     highestPercentage,
     middlePercentage,
     lowestPercentage,
+    loopsNumber: loopCount,
     // Add more properties as needed
   };
   // Assuming half of the volumetricDataset
@@ -566,7 +591,12 @@ function generateVolumetricData(
   flattenAndWriteToFile(secondHalf, fileName, true);
 
   // Function to copy .byte file to CUDA folder, run make, and execute
-  const triggerCuda = (cudaFolderPath, byteFilePath, byteFileName) => {
+  const triggerCuda = (
+    cudaFolderPath,
+    byteFilePath,
+    byteFileName,
+    screenshotFolderPath
+  ) => {
     // Step 1: Copy .byte file to CUDA folder
     const cudaByteFilePath = path.join(
       `${cudaFolderPath}/data`,
@@ -598,21 +628,27 @@ function generateVolumetricData(
         return;
       }
       console.log(`Make executed successfully: ${stdout}`);
-
-      // Step 4: Run the CUDA program
-      exec("./volumeRender", { cwd: cudaFolderPath }, (err, stdout, stderr) => {
-        if (err) {
-          console.error(`Error during CUDA execution: ${stderr}`);
-          return;
+      // Step 4: Run the CUDA program with the screenshot path argument
+      const screenshotPathArg = `--screenshot_path=${screenshotFolderPath}`;
+      exec(
+        `./volumeRender ${screenshotPathArg}`,
+        { cwd: cudaFolderPath },
+        (err, stdout, stderr) => {
+          if (err) {
+            console.error(`Error during CUDA execution: ${stderr}`);
+            return;
+          }
+          console.log(`CUDA program output: ${stdout}`);
+          console.log(`Screenshot should be saved in ${screenshotFolderPath}`);
         }
-        console.log(`CUDA program output: ${stdout}`);
-      });
+      );
     });
   };
 
   const cudaPath = `/home/dahalp/prastut/cuda-samples/Samples/5_Domain_Specific/volumeRender/`;
-  const dataPath = `./${folderName}/${fileName}.byte`;
-  triggerCuda(cudaPath, dataPath, fileName);
+  const dataPath = `./${folderName}/${subFolderName}/${fileName}.byte`;
+  const screenshotFolderPath = `/home/dahalp/prastut/volumeCreationServer/${folderName}/${subFolderName}`;
+  triggerCuda(cudaPath, dataPath, fileName, screenshotFolderPath);
 
   return volumetricDataset;
 }
