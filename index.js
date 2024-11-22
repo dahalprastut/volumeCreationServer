@@ -10,8 +10,6 @@ const PORT = 3000; // You can change the port if needed
 
 app.use(express.json());
 
-const loopCount = 150;
-
 app.use(cors());
 
 // Route to generate volumetric data
@@ -22,6 +20,7 @@ app.post("/generate-volumetric-data", (req, res) => {
     curveWidthMiddle,
     curveWidthLowest,
     dataSize,
+    loopsNumber,
     highestLoopValue,
     middleLoopValue,
     lowestLoopValue,
@@ -49,6 +48,7 @@ app.post("/generate-volumetric-data", (req, res) => {
     curveWidthMiddle,
     curveWidthLowest,
     dataSize,
+    loopsNumber,
     highestLoopValue,
     middleLoopValue,
     lowestLoopValue,
@@ -74,11 +74,11 @@ app.post("/generate-volumetric-data", (req, res) => {
 
 // Route to handle file download
 app.get(
-  "/download/:alphaValue/:highestLoopPercentage/:middleLoopPercentage/:lowestLoopPercentage/:filename",
+  "/download/:alphaValue/:highestLoopPercentage/:middleLoopPercentage/:lowestLoopPercentage/:loopsNumber/:filename",
   (req, res) => {
     const filename = req.params.filename;
     let nameWithoutExtension = filename.split(".").slice(0, -1).join(".");
-    const folderName = `Mag_Field_00_[${req.params.alphaValue}]_${loopCount}`;
+    const folderName = `Mag_Field_00_[${req.params.alphaValue}]_${req.params.loopsNumber}`;
     console.log("here", nameWithoutExtension);
     const subFolderName = `${req.params.highestLoopPercentage}_${req.params.middleLoopPercentage}_${req.params.lowestLoopPercentage}_${nameWithoutExtension}`;
     console.log("subFolderName", subFolderName);
@@ -113,6 +113,7 @@ function generateVolumetricData(
   UiCurveWidthMiddle,
   UiCurveWidthLowest,
   UiDataSize,
+  UILoopsNumber,
   UiHighestLoopValue,
   UiMiddleLoopValue,
   UiLowestLoopValue,
@@ -130,7 +131,7 @@ function generateVolumetricData(
   UILowestLoopPercentage,
   fileName
 ) {
-  console.log("asdfavewq", fileName);
+  const loopCount = UILoopsNumber;
   // Your existing volumetric data generation logic here
   const alphaValue = UiAlphaValue || 0.0;
 
