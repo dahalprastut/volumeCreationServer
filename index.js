@@ -4,6 +4,7 @@ const fs = require("fs");
 const { exec } = require("child_process");
 const path = require("path");
 const cors = require("cors");
+const os = require("os");
 
 const app = express();
 const PORT = 3000; // You can change the port if needed
@@ -598,52 +599,116 @@ function generateVolumetricData(
     byteFileName,
     screenshotFolderPath
   ) => {
-    // Step 1: Copy .byte file to CUDA folder
-    const cudaByteFilePath = path.join(
-      `${cudaFolderPath}/data`,
-      byteFileName + ".byte"
-    );
-    fs.copyFileSync(byteFilePath, cudaByteFilePath);
-    console.log(`Copied ${byteFileName}.byte to CUDA folder.`);
+    const isWindows = process.platform === "win32";
 
-    // Step 2: Replace the volumeFilename in the CUDA .cpp file
-    const cudaSourcePath = path.join(cudaFolderPath, "volumeRender.cpp");
-    let sourceCode = fs.readFileSync(cudaSourcePath, "utf8");
+    if (isWindows) {
+      // Step 1: Copy .byte file to CUDA folder
+      const cudaByteFilePath = path.join(
+        cudaFolderPath,
+        "data",
+        `${byteFileName}.byte`
+      );
+      fs.copyFileSync(byteFilePath, cudaByteFilePath);
+      console.log(`Copied ${byteFileName}.byte to CUDA folder.`);
 
-    // Replace the current volumeFilename with the new one
-    const newSourceCode = sourceCode.replace(
-      /const char \*volumeFilename = "(.*)";/,
-      `const char *volumeFilename = "${byteFileName}.byte";`
-    );
+      // Step 2: Update the volumeFilename in the CUDA source code
+      const cudaSourcePath = path.join(cudaFolderPath, "volumeRender.cpp");
+      let sourceCode = fs.readFileSync(cudaSourcePath, "utf8");
+      const newSourceCode = sourceCode.replace(
+        /const char \*volumeFilename = "(.*)";/,
+        `const char *volumeFilename = "${byteFileName}.byte";`
+      );
+      fs.writeFileSync(cudaSourcePath, newSourceCode, "utf8");
+      console.log(
+        `Updated volumeFilename in CUDA source to ${byteFileName}.byte.`
+      );
 
-    // Write the updated source code back to the .cpp file
-    fs.writeFileSync(cudaSourcePath, newSourceCode, "utf8");
-    console.log(
-      `Updated volumeFilename in CUDA source to ${byteFileName}.byte.`
-    );
+      // Step 3: Set up environment and build with MSBuild
+      const vcvarsPath = `"C:\\Path\\To\\Visual Studio\\VC\\Auxiliary\\Build\\vcvars64.bat"`;
+      const projectPath = path.join(cudaFolderPath, "volumeRender.sln");
+      const msbuildCommand = `MSBuild "${projectPath}" /p:Configuration=Release /p:Platform=x64`;
 
-    // Step 3: Run 'make' inside CUDA folder
-    exec("make", { cwd: cudaFolderPath }, (err, stdout, stderr) => {
-      if (err) {
-        console.error(`Error during make: ${stderr}`);
-        return;
-      }
-      console.log(`Make executed successfully: ${stdout}`);
-      // Step 4: Run the CUDA program with the screenshot path argument
-      const screenshotPathArg = `--screenshot_path=${screenshotFolderPath}`;
+      const buildCommand = `${vcvarsPath} && ${msbuildCommand}`;
+
       exec(
-        `./volumeRender ${screenshotPathArg}`,
-        { cwd: cudaFolderPath },
+        buildCommand,
+        { cwd: cudaFolderPath, shell: true },
         (err, stdout, stderr) => {
           if (err) {
-            console.error(`Error during CUDA execution: ${stderr}`);
+            console.error(`Build error: ${stderr}`);
             return;
           }
-          console.log(`CUDA program output: ${stdout}`);
-          console.log(`Screenshot should be saved in ${screenshotFolderPath}`);
+          console.log(`Build succeeded: ${stdout}`);
+
+          // Step 4: Run the executable
+          const screenshotPathArg = `--screenshot_path="${screenshotFolderPath}"`;
+          const exePath = path.join(
+            cudaFolderPath,
+            "x64",
+            "Release",
+            "volumeRender.exe"
+          );
+          exec(`"${exePath}" ${screenshotPathArg}`, (err, stdout, stderr) => {
+            if (err) {
+              console.error(`Execution error: ${stderr}`);
+              return;
+            }
+            console.log(`Execution output: ${stdout}`);
+            console.log(`Screenshot saved in ${screenshotFolderPath}`);
+          });
         }
       );
-    });
+    } else {
+      // Step 1: Copy .byte file to CUDA folder
+      const cudaByteFilePath = path.join(
+        `${cudaFolderPath}/data`,
+        byteFileName + ".byte"
+      );
+      fs.copyFileSync(byteFilePath, cudaByteFilePath);
+      console.log(`Copied ${byteFileName}.byte to CUDA folder.`);
+
+      // Step 2: Replace the volumeFilename in the CUDA .cpp file
+      const cudaSourcePath = path.join(cudaFolderPath, "volumeRender.cpp");
+      let sourceCode = fs.readFileSync(cudaSourcePath, "utf8");
+
+      // Replace the current volumeFilename with the new one
+      const newSourceCode = sourceCode.replace(
+        /const char \*volumeFilename = "(.*)";/,
+        `const char *volumeFilename = "${byteFileName}.byte";`
+      );
+
+      // Write the updated source code back to the .cpp file
+      fs.writeFileSync(cudaSourcePath, newSourceCode, "utf8");
+      console.log(
+        `Updated volumeFilename in CUDA source to ${byteFileName}.byte.`
+      );
+
+      // Step 3: Run 'make' inside CUDA folder
+
+      exec("make", { cwd: cudaFolderPath }, (err, stdout, stderr) => {
+        if (err) {
+          console.error(`Error during make: ${stderr}`);
+          return;
+        }
+        console.log(`Make executed successfully: ${stdout}`);
+        // Step 4: Run the CUDA program with the screenshot path argument
+        const screenshotPathArg = `--screenshot_path=${screenshotFolderPath}`;
+        exec(
+          `./volumeRender ${screenshotPathArg}`,
+          { cwd: cudaFolderPath },
+          (err, stdout, stderr) => {
+            if (err) {
+              console.error(`Error during CUDA execution: ${stderr}`);
+              return;
+            }
+            console.log(`CUDA program output: ${stdout}`);
+            console.log(
+              `Screenshot should be saved in ${screenshotFolderPath}`
+            );
+          }
+        );
+      });
+    }
   };
 
   const cudaPath = `/home/dahalp/prastut/cuda-samples/Samples/5_Domain_Specific/volumeRender/`;
