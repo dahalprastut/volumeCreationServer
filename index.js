@@ -1,3 +1,5 @@
+// Just change the type and SDOType
+
 const type = "SDO"; // can be "TRACE" or "SDO"
 const dataDate = "2023.01.10"; //Only when SDO (date for the data)
 const SDOPath = `SDO/${dataDate}/`;
@@ -624,12 +626,14 @@ function generateVolumetricData(
     cudaFolderPath,
     cudaExecutionPath,
     byteFilePath,
+    dataTracePath,
+    dataMagPath,
     byteFileName,
     screenshotFolderPath
   ) => {
     const isWindows = process.platform === "win32";
     if (isWindows) {
-      // Step 1: Copy .byte file to CUDA folder
+      // Step 1: Copy .byte file to CUDA folder and also trace_img and mag_img
       const cudaByteFilePath = path.join(
         cudaFolderPath,
         "data",
@@ -637,6 +641,25 @@ function generateVolumetricData(
       );
       fs.copyFileSync(byteFilePath, cudaByteFilePath);
       console.log(`Copied ${byteFileName}.byte to CUDA folder.`);
+
+      const targetTracePath = path.join(cudaFolderPath, "trace_image.png");
+      const targetMagPath = path.join(cudaFolderPath, "mag_image.png");
+
+      // Copy trace_image.png
+      if (fs.existsSync(dataTracePath)) {
+        fs.copyFileSync(dataTracePath, targetTracePath);
+        console.log("Copied trace_image.png to CUDA folder.");
+      } else {
+        console.log("trace_image.png not found.");
+      }
+
+      // Copy mag_image.png
+      if (fs.existsSync(dataMagPath)) {
+        fs.copyFileSync(dataMagPath, targetMagPath);
+        console.log("Copied mag_image.png to CUDA folder.");
+      } else {
+        console.log("mag_image.png not found.");
+      }
 
       // Step 2: Update the volumeFilename in the CUDA source code
       const cudaSourcePath = path.join(cudaFolderPath, "volumeRender.cpp");
@@ -774,6 +797,25 @@ function generateVolumetricData(
       fs.copyFileSync(byteFilePath, cudaByteFilePath);
       console.log(`Copied ${byteFileName}.byte to CUDA folder.`);
 
+      const targetTracePath = path.join(cudaFolderPath, "trace_image.png");
+      const targetMagPath = path.join(cudaFolderPath, "mag_image.png");
+
+      // Copy trace_image.png
+      if (fs.existsSync(dataTracePath)) {
+        fs.copyFileSync(dataTracePath, targetTracePath);
+        console.log("Copied trace_image.png to CUDA folder.");
+      } else {
+        console.log("trace_image.png not found.");
+      }
+
+      // Copy mag_image.png
+      if (fs.existsSync(dataMagPath)) {
+        fs.copyFileSync(dataMagPath, targetMagPath);
+        console.log("Copied mag_image.png to CUDA folder.");
+      } else {
+        console.log("mag_image.png not found.");
+      }
+
       // Step 2: Replace the volumeFilename in the CUDA .cpp file
       const cudaSourcePath = path.join(cudaFolderPath, "volumeRender.cpp");
       let sourceCode = fs.readFileSync(cudaSourcePath, "utf8");
@@ -829,6 +871,14 @@ function generateVolumetricData(
   const dataPath = `./${
     type == "SDO" ? SDOPath : ""
   }${folderName}/${subFolderName}/${fileName}.byte`;
+
+  // Define paths for trace and mag images
+  const dataTracePath = `./${
+    type == "SDO" ? SDOPath : ""
+  }${folderName}/trace_image.png`;
+  const dataMagPath = `./${
+    type == "SDO" ? SDOPath : ""
+  }${folderName}/mag_image.png`;
   const screenshotFolderPath = isWindows
     ? `D:/work/professor/dipoleWebBack/${
         type == "SDO" ? SDOPath : ""
@@ -840,6 +890,8 @@ function generateVolumetricData(
     cudaPath,
     cudaExecutionPath,
     dataPath,
+    dataTracePath,
+    dataMagPath,
     fileName,
     screenshotFolderPath
   );
